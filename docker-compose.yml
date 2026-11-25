@@ -1,0 +1,26 @@
+# Minimal Docker Compose setup for openset-llm
+# Ensures at least 8 GB of RAM is available to the Docker VM / container.
+#
+#   docker compose up --build
+#   curl http://127.0.0.1:8080/health
+
+services:
+  openset-llm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openset-llm:local
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - openset-llm-models:/data/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+
+volumes:
+  openset-llm-models:
