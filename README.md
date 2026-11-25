@@ -71,6 +71,12 @@ git clone https://github.com/opensetlabs/openset-llm && cd openset-llm
 ./start
 ```
 
+Want to check your CPU (AVX-512 fast path) and free RAM before downloading the ~7.3 GB model? Run:
+
+```sh
+./install.sh --check
+```
+
 The first run checks your machine, builds the engine and downloads the model (~7.3 GB), then opens a chat page at
 http://127.0.0.1:8080. Later runs go straight to the page. Ctrl+C stops it.
 
