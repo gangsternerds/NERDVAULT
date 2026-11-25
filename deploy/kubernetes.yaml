@@ -1,0 +1,81 @@
+# Minimal CPU-only Kubernetes deployment for openset-llm (no GPU required).
+# Build and push the image from the root Dockerfile, then set `image:` below.
+# Target x86-64 AVX-512 nodes (Intel Ice Lake+ or AMD Zen 4+) for the fast path.
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openset-llm-models
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openset-llm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openset-llm
+  template:
+    metadata:
+      labels:
+        app: openset-llm
+    spec:
+      containers:
+        - name: openset-llm
+          image: openset-llm:local
+          args: ["--no-webui"]
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: "8"
+              memory: "9Gi"
+            limits:
+              cpu: "8"
+              memory: "10Gi"
+          volumeMounts:
+            - name: models
+              mountPath: /data/models
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: openset-llm-models
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openset-llm
+spec:
+  type: ClusterIP
+  selector:
+    app: openset-llm
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
