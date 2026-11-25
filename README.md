@@ -277,6 +277,27 @@ Defaults are the fastest settings. Switches: `./serve --no-spec` (plain decoding
 speculation stay on at `--ctx 8192` on an 8 GB machine; not exact: WikiText PPL 7.5678 vs 7.5702) or its smaller
 siblings `--kv6` / `--kv5` (6- and 5-bit; [Memory budget](#memory-budget-8-gb-machine) has the limits and numbers).
 
+## LoRA adapters (experimental)
+
+GGUF LoRA adapters made for Qwen3.8-27B load through llama-server's own flag, passed after `--`:
+
+    ./serve -- --lora Qwen3.8-27B-opencode-lora-F16.gguf
+
+The adapter is applied at run time next to the ternary weights, which stay as they are. Tested with the OpenCode
+adapter ([harness-hub/Qwen3.8-27B-opencode-adapted-GGUF](https://huggingface.co/harness-hub/Qwen3.8-27B-opencode-adapted-GGUF),
+319 MB) on one 8 vCPU / 8 GB Ice Lake box, 6 prompts × 128 tokens:
+
+| | decode tok/s, median | free memory |
+|---|---|---|
+| `./serve` | 14.7 | 0.24 GB |
+| `./serve` + adapter | 8.4 | none left (the box was out of memory) |
+| `./serve --no-spec` | 8.0 | 1.25 GB |
+| `./serve --no-spec` + adapter | 6.5 | 0.93 GB |
+
+The adapter loads, changes the output and tool calls stay well-formed; speculative decoding still accepts drafts at the
+same rate. On 8 GB use `--no-spec` with an adapter, or a machine with more memory. Not measured: whether an adapter
+trained on the full-precision model improves this ternary build on any task.
+
 ## Several requests at once (`--multi`)
 
 `./serve --multi N` serves N requests together: every pass over the ~6 GB of weights produces one token for each of
