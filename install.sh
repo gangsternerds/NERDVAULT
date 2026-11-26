@@ -110,7 +110,9 @@ if [ ${#need_tools[@]} -gt 0 ]; then
   apt_install "${need_tools[@]}" || true
 fi
 PY=python3
-if [ "$MTP" = 1 ] && [ ! -f "$PREFIX/models/model.gguf" ] && ! python3 -c 'import numpy, yaml' 2>/dev/null; then   # the MTP graft reads GGUF (gguf-py: numpy, pyyaml)
+# the MTP graft reads GGUF (gguf-py: numpy, pyyaml). It runs as python3 -I below, which sees neither the user's
+# site-packages (pip install --user) nor PYTHONPATH, so look for the modules the same way
+if [ "$MTP" = 1 ] && [ ! -f "$PREFIX/models/model.gguf" ] && ! python3 -I -c 'import numpy, yaml' 2>/dev/null; then
   say "Setting up a Python venv with numpy + pyyaml (to attach the multi-token-prediction head)"
   if python3 -m venv "$PREFIX/venv" >/dev/null 2>&1 || { apt_install python3-venv && python3 -m venv "$PREFIX/venv"; }; then
     "$PREFIX/venv/bin/pip" install -q numpy pyyaml && PY=$PREFIX/venv/bin/python
