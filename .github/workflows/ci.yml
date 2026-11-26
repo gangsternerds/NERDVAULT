@@ -12,6 +12,11 @@ jobs:
         run: for f in install.sh serve start scripts/package.sh scripts/verify-dispatch.sh scripts/cross-aarch64.sh patches/apply.sh docker/entrypoint.sh bench/box.sh bench/jobs.sh bench/quick.sh; do bash -n "$f"; done
       - name: Python compiles
         run: python3 -m py_compile scripts/graft_mtp.py bench/*.py
+      - name: Unit tests
+        run: |
+          python3 -m pip install -q --break-system-packages gguf numpy
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          cd bench && python3 -m unittest discover -s . -p 'test_*.py'
       - name: Files the README links to exist
         run: |
           fail=0
