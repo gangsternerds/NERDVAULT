@@ -1,0 +1,18 @@
+# Keep consistent LF endings on Linux/WSL2 scripts and tooling
+* text=auto
+
+start text eol=lf
+serve text eol=lf
+Dockerfile text eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.patch text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+
+# Media assets
+*.png binary
+*.gif binary
+*.mp4 binary
