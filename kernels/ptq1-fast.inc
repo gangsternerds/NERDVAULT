@@ -16,6 +16,10 @@
 //      speculative verification amortize the decode instead of repeating it.
 #include "ptq1-common.h"
 #include "ptq1-drop.h"
+#ifndef PTQ1F_MIN
+#define PTQ1F_MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+#include "ptq1-avx2.inc"   // the 256-bit kernels: the default on a build without AVX-512, GGML_PTQ1_AVX2=1 on one with it
 
 #if defined(__AVX512F__) && defined(__AVX512BW__) && defined(__AVX512VNNI__)
 #include <immintrin.h>
@@ -77,6 +81,9 @@ static size_t ptq1p_col_bytes(int64_t k);
 static size_t ptq1v_col_bytes(int64_t k);
 #endif
 static size_t ptq1f_wsize(const struct ggml_tensor * src0, const struct ggml_tensor * src1) {
+#if PTQ1A_OK
+    if (ptq1a_on()) return ptq1a_wsize(src0, src1);
+#endif
 #if defined(__AVX512VBMI__)
     if (ptq1f_mode() >= 5) return ptq1v_col_bytes(src0->ne[0]) * (size_t) src1->ne[1] + 64;
 #endif
@@ -317,6 +324,9 @@ static bool ptq1f_mul_mat(const struct ggml_compute_params * params, struct ggml
     const struct ggml_tensor * src0 = dst->src[0];
     const struct ggml_tensor * src1 = dst->src[1];
     if (!ptq1f_applies(src0, src1)) return false;
+#if PTQ1A_OK
+    if (ptq1a_on()) return ptq1a_mul_mat(params, dst);
+#endif
     if (ptq1f_mode() >= 3) return ptq1p_mul_mat(params, dst);
     const int ith = params->ith, nth = params->nth;
     const int64_t k = src0->ne[0], rows = src0->ne[1], m = src1->ne[1];
@@ -360,9 +370,24 @@ static bool ptq1f_mul_mat(const struct ggml_compute_params * params, struct ggml
 }
 #endif
 #else
+#if PTQ1A_OK && !defined(PTQ1F_NO_GGML)
+// no AVX-512 kernels in this build: the 256-bit kernels of ptq1-avx2.inc (AVX2, with AVX-VNNI when the build has it).
+// GGML_PTQ1_AVX2=0 or GGML_PTQ1_FAST=0 leaves the matmul to the fork's own kernel.
+static bool ptq1f_applies(const struct ggml_tensor * src0, const struct ggml_tensor * src1) {
+    return src0->type == GGML_TYPE_PTQ1_0 && src1->type == GGML_TYPE_F32 &&
+           src0->ne[2] == 1 && src0->ne[3] == 1 && src1->ne[2] == 1 && src1->ne[3] == 1 &&
+           ggml_is_contiguous(src0) && ggml_is_contiguous(src1) && src0->ne[0] % 128 == 0 && ptq1a_on();
+}
+static bool ptq1f_mul_mat(const struct ggml_compute_params * params, struct ggml_tensor * dst) {
+    if (!ptq1f_applies(dst->src[0], dst->src[1])) return false;
+    return ptq1a_mul_mat(params, dst);
+}
+static size_t ptq1f_wsize(const struct ggml_tensor * a, const struct ggml_tensor * b) { return ptq1a_wsize(a, b); }
+#else
 static bool ptq1f_mul_mat(const struct ggml_compute_params * params, struct ggml_tensor * dst) { (void) params; (void) dst; return false; }
 static size_t ptq1f_wsize(const struct ggml_tensor * a, const struct ggml_tensor * b) { (void) a; (void) b; return 0; }
 static bool ptq1f_applies(const struct ggml_tensor * a, const struct ggml_tensor * b) { (void) a; (void) b; return false; }
+#endif
 static inline int ptq1p_k7(void) { return 0; }
 static const int ptq1p_k7_la = 0;
 static void ptq1p_k7_spin(void) { }

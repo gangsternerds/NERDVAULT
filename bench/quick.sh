@@ -4,16 +4,18 @@
 #
 #   ./bench/quick.sh              # default settings (what ./serve runs), 6 prompts x 128 tokens, greedy
 #   ./bench/quick.sh --plain      # also measure plain decoding (./serve --no-spec)
+#   ./bench/quick.sh --spec       # also measure ./serve --spec (speculation where ./serve turns it off by itself,
+#                                 #   for example on a CPU without AVX-512)
 #   ./bench/quick.sh --prompts 12 --tokens 256 --port 8191 --threads N
 #
 # It starts its own server on a spare port, so stop a running ./serve first on an 8 GB machine (two do not fit).
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-PORT=8191; NP=6; NTOK=128; PLAIN=0; THREADS=
+PORT=8191; NP=6; NTOK=128; PLAIN=0; SPECARM=0; THREADS=
 while [ $# -gt 0 ]; do case $1 in
-  --plain) PLAIN=1 ;; --prompts) NP=$2; shift ;; --tokens) NTOK=$2; shift ;; --port) PORT=$2; shift ;;
+  --plain) PLAIN=1 ;; --spec) SPECARM=1 ;; --prompts) NP=$2; shift ;; --tokens) NTOK=$2; shift ;; --port) PORT=$2; shift ;;
   --threads) THREADS=$2; shift ;;
-  -h|--help) sed -n 2,9p "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h|--help) sed -n 2,11p "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) echo "unknown option: $1" >&2; exit 2 ;; esac; shift; done
 command -v python3 >/dev/null || { echo "python3 is needed" >&2; exit 1; }
 PREFIX=${OPENSET_LLM_HOME:-$HOME/.openset-llm}
@@ -63,7 +65,7 @@ PY
 
 cpu=$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //')
 flags=" $(grep -m1 '^flags' /proc/cpuinfo | cut -d: -f2) "
-simd=; for f in avx2 avx512f avx512bw avx512_vnni avx512vbmi; do case "$flags" in *" $f "*) simd="$simd $f" ;; esac; done
+simd=; for f in avx2 avx_vnni avx512f avx512bw avx512_vnni avx512vbmi; do case "$flags" in *" $f "*) simd="$simd $f" ;; esac; done
 cores=$(lscpu 2>/dev/null | awk -F: '/^Core\(s\) per socket/ {c=$2} /^Socket\(s\)/ {s=$2} END {if (c && s) print c * s}')
 ram=$(awk '/^MemTotal:/ {printf "%.1f", $2 / 1048576}' /proc/meminfo)
 commit=$(git -C "$HERE" rev-parse --short HEAD 2>/dev/null || echo "no git checkout")
@@ -73,6 +75,9 @@ echo "measuring: $NP prompts x $NTOK tokens per row (a few minutes)..." >&2
 arm "./serve" > "$ROWS"
 if [ "$PLAIN" = 1 ]; then
   arm "./serve --no-spec" --no-spec >> "$ROWS"
+fi
+if [ "$SPECARM" = 1 ]; then
+  arm "./serve --spec" --spec >> "$ROWS"
 fi
 rows=$(cat "$ROWS")
 cat <<OUT

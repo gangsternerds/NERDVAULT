@@ -2,7 +2,8 @@
 # install.sh: build (or fetch) the engine and download the model. Then run ./serve.
 #
 #   ./install.sh                 # CPU check, build for this machine, download + prepare the model
-#   ./install.sh --portable      # build one binary set for every x86-64 CPU (picks the best kernel at run time)
+#   ./install.sh --portable      # build one binary set for every x86-64 CPU (picks the best kernel at run time:
+#                                #   AVX-512 where the CPU has it, the 256-bit AVX2 / AVX-VNNI kernels where it does not)
 #   ./install.sh --bin-url URL   # fetch a prebuilt tarball (made by scripts/package.sh) instead of building
 #   ./install.sh --no-mtp        # skip the speculative-decoding head (saves 1.4 GB of download; 1.4-1.9x slower)
 #   ./install.sh --check         # only print what this machine will get, then exit
@@ -29,7 +30,7 @@ while [ $# -gt 0 ]; do
     --no-mtp) MTP=0 ;;
     --check) CHECK_ONLY=1 ;;
     --model-only) MODEL_ONLY=1 ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -49,8 +50,14 @@ cpu_path() {
         echo "fast|AVX-512 VNNI + VBMI: full fast path"
       elif has avx512f && has avx512bw && has avx512_vnni; then
         echo "partial|AVX-512 VNNI without VBMI: partial fast path (slower than the full one)"
+      elif has avx512f && has avx2 && has fma && has f16c; then
+        echo "avx2|AVX-512 without VNNI: the 256-bit kernels (not measured on this CPU class)"
+      elif has avx2 && has fma && has f16c && has avx_vnni; then
+        echo "avx2|AVX2 + AVX-VNNI, no AVX-512: the 256-bit kernels (checked under an emulated CPU of this kind; not measured on one yet)"
+      elif has avx2 && has fma && has f16c; then
+        echo "avx2|AVX2, no AVX-512: the 256-bit kernels (0.7x of the AVX-512 path's plain decoding speed on an Ice Lake server with AVX-512 disabled)"
       elif has avx2; then
-        echo "fallback|AVX2 only: the fork's own ternary kernel. Same answers, but expect ~5x slower decode and much slower prompt reading"
+        echo "fallback|AVX2 without FMA: the fork's own ternary kernel. It will run, slowly"
       else
         echo "fallback|no AVX2: the generic kernel. It will run, slowly"
       fi ;;

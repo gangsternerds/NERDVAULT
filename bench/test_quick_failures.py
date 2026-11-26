@@ -8,7 +8,7 @@ import unittest
 
 
 class QuickBenchmarkTest(unittest.TestCase):
-    def run_quick(self, failure, plain=False):
+    def run_quick(self, failure, plain=False, spec=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "bench").mkdir()
@@ -27,7 +27,7 @@ class QuickBenchmarkTest(unittest.TestCase):
             script(root / "serve", 'echo $$ > "$TEST_ROOT/server.pid"\necho "serving on test (synthetic mode)"\nexec sleep 60\n')
             env = dict(os.environ, TEST_ROOT=str(root), TMPDIR=str(root), OPENSET_LLM_HOME=str(root / "home"),
                        PATH=str(root / "commands") + os.pathsep + os.environ["PATH"])
-            proc = subprocess.Popen(["bash", str(root / "bench/quick.sh")] + (["--plain"] if plain else []),
+            proc = subprocess.Popen(["bash", str(root / "bench/quick.sh")] + (["--plain"] if plain else []) + (["--spec"] if spec else []),
                                     env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                     text=True, start_new_session=True)
             try:
@@ -53,6 +53,11 @@ class QuickBenchmarkTest(unittest.TestCase):
         code, stdout, stderr = self.run_quick(False, plain=True)
         self.assertEqual(code, 0, stderr)
         self.assertEqual(stdout.count("| synthetic result |"), 2)
+
+    def test_speculation_arm_adds_a_third_row(self):
+        code, stdout, stderr = self.run_quick(False, plain=True, spec=True)
+        self.assertEqual(code, 0, stderr)
+        self.assertEqual(stdout.count("| synthetic result |"), 3)
 
 
 if __name__ == "__main__":

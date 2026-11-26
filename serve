@@ -9,7 +9,7 @@
 #   ./serve --no-spec             # plain decoding (no speculation)
 #   ./serve --spec                # keep speculation on where serve would turn it off: for lack of memory
 #                                 #   (< 12 GB RAM: --ctx > 4096; > 8192 with --kv8; > 12288 with --kv6; > 16384 with --kv5)
-#                                 #   or on a CPU without AVX-512 VNNI
+#                                 #   or on a CPU without AVX-512 VNNI (AVX2 / AVX-VNNI: speculation speeds up code and JSON there and slows down prose)
 #   ./serve --think               # let the model think before answering (much longer replies)
 #   ./serve --no-resume           # turn off agent-loop resume (default on; saved prefix states live in $OPENSET_LLM_HOME/state)
 #   ./serve --kv6 | --kv5         # EXPERIMENTAL: 6- / 5-bit attention cache, 38 % / 32 % of the default cache; on 8 GB:
@@ -114,13 +114,22 @@ else
   export LLAMA_RESUME=0 LLAMA_RESUME_DIR=
 fi
 [ "$FL128" = 1 ] && export GGML_PTQ1_FL128=${GGML_PTQ1_FL128:-1} GGML_PTQ1_K4=${GGML_PTQ1_K4:-2}
-# Without AVX-512 VNNI the engine runs on the fork's own kernel, and speculation is slower than plain decoding there
-# (measured 2026-11-12, AVX2 kernel: 1.2 vs 1.7 tok/s). With VNNI but no VBMI it still helps (7.8 vs 6.6), so it stays on.
-if [ "$SPEC" = 1 ] && [ "$MULTI" -lt 2 ] && [ "$SPEC_FORCE" = 0 ]; then
+# Without AVX-512 VNNI the engine runs on the 256-bit kernels (AVX2, AVX-VNNI where the CPU has it). Checking a draft
+# of 3 tokens costs about twice a single token there (1.1-1.2 times on the AVX-512 kernels), so speculation only pays
+# where the drafts are usually right:
+# measured with AVX-512 switched off on Ice Lake boxes (2026-11-26, 128 prompts of 10 kinds, drafting 2 tokens ahead):
+# 1.2-1.4x plain decoding on code, JSON, maths and tool calls, 0.9-1.0x on prose, translation and summaries (3 tokens
+# ahead: 0.8-0.85x there). So it stays off unless --spec asks for it, and --spec drafts 2 tokens ahead on these CPUs.
+# With AVX-512 VNNI but no VBMI it still helps (7.8 vs 6.6 tok/s), so it stays on.
+if [ "$SPEC" = 1 ] && [ "$MULTI" -lt 2 ]; then
   case " $(grep -m1 '^flags' /proc/cpuinfo 2>/dev/null | cut -d: -f2) " in
     *" avx512_vnni "*) ;;
-    *) echo "note: this CPU has no AVX-512 VNNI: speculation off (it is slower than plain decoding here); --spec forces it" >&2
-       SPEC=0 ;;
+    *) if [ "$SPEC_FORCE" = 0 ]; then
+         echo "note: this CPU has no AVX-512 VNNI: speculation off (on this kind of CPU it speeds up code and JSON and slows down prose); --spec forces it" >&2
+         SPEC=0
+       elif [ -z "$DEPTH" ] && [ "$ADAPT" = 0 ]; then
+         DEPTH=2   # drafting 2 tokens ahead instead of 3: the better depth on the 256-bit kernels (--spec-depth N overrides)
+       fi ;;
   esac
 fi
 [ "$KV8" = 1 ] && [ "$KVQ" != 0 ] && { echo "choose one of --kv8, --kv6, --kv5" >&2; exit 2; }

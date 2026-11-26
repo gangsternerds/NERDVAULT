@@ -4,6 +4,25 @@ All notable changes to openset-llm. Dates are YYYY-MM-DD.
 
 ## Unreleased
 
+Added
+
+- 256-bit kernels for the ternary weights on CPUs without AVX-512 (AVX2, and AVX-VNNI where the CPU has it): Intel
+  Core, 12th gen and newer included, and AMD Zen 1 to 3. `./install.sh` and `--portable` builds pick them by
+  themselves; before, these CPUs ran the fork's own kernel. Measured on Ice Lake server VMs with AVX-512 disabled:
+  plain decoding 6.1–7.7 tok/s, 3.5× the old path and 0.7× of the AVX-512 path; prompt reading
+  6.7× the old path. Speculation stays off by default on these CPUs (it speeds up code and JSON and slows down prose);
+  `./serve --spec` turns it on and drafts 2 tokens ahead there. AVX-512 machines are unchanged. See "CPUs without AVX-512" in the README.
+- `scripts/verify-dispatch.sh` checks the 256-bit kernels too (alone, inside the AVX-512 build, and in the build for
+  AVX-512 CPUs without VNNI); `tests/` gained a kernel test against a scalar reference.
+
+Fixed
+
+- In 0.2.0 and earlier, a `--portable` build could not start on a CPU without AVX-512; the Docker image and
+  `--bin-url` binaries are made from that build. Fixed in this release. Found and checked under emulated Haswell and
+  Alder Lake CPUs.
+
+Thank you to everyone who told us openset-llm was slow on laptops and desktops without AVX-512. This change is for you.
+
 ## 0.2.0 (2026-11-26)
 
 Added

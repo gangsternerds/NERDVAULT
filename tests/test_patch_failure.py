@@ -17,7 +17,7 @@ class ApplyFailure(unittest.TestCase):
                 path.mkdir(parents=True)
             shutil.copyfile(ROOT / 'patches/apply.sh', patches / 'apply.sh')
             for name in ('ptq1-common.h', 'ptq1-drop.h', 'ptq1-fast.inc', 'ptq1-panel.inc',
-                         'ptq1-vbmi.inc', 'x1-q4k.inc', 'attn-fast.inc', 'kvq.h'):
+                         'ptq1-vbmi.inc', 'ptq1-avx2.inc', 'x1-q4k.inc', 'attn-fast.inc', 'kvq.h'):
                 (kernels / name).touch()
             paths = ('ggml/src/ggml-cpu/ggml-cpu.c', 'ggml/src/ggml-cpu/ops.cpp',
                      'src/models/qwen35.cpp', 'src/llama-context.cpp', 'tools/server/server-context.cpp',

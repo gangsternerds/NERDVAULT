@@ -4,8 +4,12 @@
 # loader picks the best one the CPU supports. Hiding the better variants forces the slower paths on this machine.
 #   bash scripts/verify-dispatch.sh [n_predict]      -> prints per-arm tok/s, which kernel loaded, output identity
 # Arms: fast (icelake variant, defaults) | k6-off (GGML_K6=0) | fast-off (GGML_PTQ1_FAST=0) | avx512-novbmi (cascadelake) |
-#       avx2 (haswell) | fast+MTP-3 (speculation vs plain) | X1 (serve's default env) vs MTP-3 on the fast, no-VBMI and AVX2
+#       avx2 (haswell: the 256-bit kernels) | avx2-fork (haswell, GGML_PTQ1_AVX2=0: the fork's own kernel) |
+#       avx512-novnni (skylakex: the 256-bit kernels in an AVX-512 build without VNNI) |
+#       fast-256 (icelake, GGML_PTQ1_AVX2=1: the 256-bit kernels inside the AVX-512 build; must equal fast) |
+#       fast+MTP-3 (speculation vs plain) | X1 (serve's default env) vs MTP-3 on the fast, no-VBMI and AVX2
 #       paths (X1 must not change any path's output)
+# The alderlake variant (AVX-VNNI) only loads on a CPU that has AVX-VNNI, so it is not an arm here.
 set -uo pipefail
 PREFIX=${OPENSET_LLM_HOME:-$HOME/.openset-llm}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -48,12 +52,15 @@ run_arm() {   # name bindir env spec
   local tps; tps=$(sort -g "$W/tps-$name.txt" | awk '{a[NR]=$1} END {print a[int((NR+1)/2)]}')
   printf '%-14s kernel=%-26s median decode %6.2f tok/s\n' "$name" "${kern:-?}" "$tps"
 }
-FAST=$(mkbin icelake); NOVBMI=$(mkbin cascadelake); AVX2=$(mkbin haswell)
+FAST=$(mkbin icelake); NOVBMI=$(mkbin cascadelake); AVX2=$(mkbin haswell); NOVNNI=$(mkbin skylakex)
 run_arm fast "$FAST" "" 0
 run_arm k6-off "$FAST" "GGML_K6=0" 0
 run_arm fast-off "$FAST" "GGML_PTQ1_FAST=0" 0
 run_arm avx512-novbmi "$NOVBMI" "" 0
 run_arm avx2 "$AVX2" "" 0
+run_arm avx2-fork "$AVX2" "GGML_PTQ1_AVX2=0" 0
+run_arm avx512-novnni "$NOVNNI" "" 0
+run_arm fast-256 "$FAST" "GGML_PTQ1_AVX2=1" 0
 run_arm fast-mtp3 "$FAST" "" 1
 run_arm fast-x1 "$FAST" "$X1ENV" 1
 run_arm novbmi-mtp3 "$NOVBMI" "" 1
@@ -62,9 +69,13 @@ run_arm avx2-mtp3 "$AVX2" "" 1
 run_arm avx2-x1 "$AVX2" "$X1ENV" 1
 same() { paste -d'\n' "$W/out-$1.txt" "$W/out-$2.txt" | paste - - | awk -F'\t' '$1==$2' | wc -l; }
 echo "== greedy identity vs 'fast' (${#PROMPTS[@]} prompts x $N tokens)"
-for a in k6-off fast-off avx512-novbmi avx2 fast-mtp3; do
+for a in k6-off fast-off avx512-novbmi fast-256 avx2 avx2-fork avx512-novnni fast-mtp3; do
   printf '%-14s %d/%d identical\n' "$a" "$(same fast $a)" "${#PROMPTS[@]}"
 done
+echo "== 256-bit kernels: fast-256 must be identical to fast (same kernel arithmetic). The avx2 arms are a different"
+echo "   build (every other operation runs at 256 bits), so a few replies can part at a near-tie; they must agree with"
+echo "   each other about as often as with fast"
+printf '%-14s %d/%d identical to avx2-fork\n' avx2 "$(same avx2 avx2-fork)" "${#PROMPTS[@]}"
 echo "== X1 vs MTP-3 on the same path (must be identical)"
 for p in fast novbmi avx2; do
   printf '%-14s %d/%d identical\n' "$p-x1" "$(same $p-mtp3 $p-x1)" "${#PROMPTS[@]}"
