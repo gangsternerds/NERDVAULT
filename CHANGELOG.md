@@ -4,6 +4,33 @@ All notable changes to openset-llm. Dates are YYYY-MM-DD.
 
 ## Unreleased
 
+Fixed
+
+- Engine: the attention fast path frees its per-thread workspaces when worker threads exit (#100) and keeps
+  split-mode scratch inside each graph's own workspace (#103); adaptive speculation depth is bounded before it
+  indexes its tables (#117).
+- Resume from disk: saved prefix states are invalidated when the model file is replaced (#101), are not used or
+  written while a LoRA adapter is active (#116), and a failed save no longer leaves a temporary file behind (#119).
+- Model grafting (`scripts/graft_mtp.py`): metadata types and string bytes are kept as they are (#90), big-endian
+  files keep their byte order (#102), and an incompatible MTP sidecar is rejected before any output is written (#118).
+- `install.sh`: the check for numpy and pyyaml now looks the same way the graft runs, so modules installed with
+  `pip install --user` get a venv instead of a failed graft (#78); a native build is staged before it replaces a
+  working engine (#109); a cached engine is rebuilt when `install.sh` or `patches/apply.sh` change (#110).
+- `./serve` rejects `--ctx`, `--multi`, `--threads`, `--port` and `--spec-depth` values outside the 32-bit range
+  the server accepts (#108).
+- Benchmark tools: owned server processes are stopped on every exit path (#84, #85); failed or incomplete response
+  streams are reported as failures (#86) and left out of identity comparisons (#111); multi-stream ratios are
+  compared within one CPU class (#87); a failed phase in `bench/jobs.sh` stays resumable (#106); `main`-guard
+  examples inside Python strings are preserved (#107).
+
+Added
+
+- `scripts/smoke-test.sh`, a three-check smoke test for a running server (#24), a `.gitattributes` that keeps LF line endings (#20),
+  and a dependabot config for GitHub Actions (#33).
+
+Thank you to @Afloat16, @Johnbjoseph-cybersec, @stevenmessinger, @shivanipoddariiith and @kcalvinaIvin for these
+changes.
+
 ## 0.3.0 (2026-11-27)
 
 Added
