@@ -56,7 +56,6 @@ openset-llm is an inference engine for ordinary CPUs; more models and more hardw
 Qwen3.8-27B, as PrismML's ternary [Bonsai-2-27B](https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf)
 (5.95 GB), on x86 CPUs: fastest with AVX-512, and on our 256-bit kernels where the CPU only has AVX2. It is a set of new kernels and runtime patches on PrismML's llama.cpp fork, and it
 serves an OpenAI-compatible API, so the clients and agents you already use work unchanged.
-Its sibling, [openset-tts](https://github.com/opensetlabs/openset-tts), does the same for speech: Qwen3-TTS faster than real time on the same kind of box.
 
 ## Quick start
 
