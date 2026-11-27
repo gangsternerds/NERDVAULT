@@ -4,6 +4,10 @@ All notable changes to openset-llm. Dates are YYYY-MM-DD.
 
 ## Unreleased
 
+## 0.3.1 (2026-11-27)
+
+A bug-fix release: 20 fixes from the community, no change in speed or in the model file.
+
 Fixed
 
 - Engine: the attention fast path frees its per-thread workspaces when worker threads exit (#100) and keeps
