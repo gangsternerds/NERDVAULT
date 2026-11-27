@@ -17,7 +17,7 @@ Thanks for looking. This is a small project; the most useful contributions are, 
 - Run the unit tests before sending a pull request; CI runs the same two commands. They need no model and take
   under a minute:
   ```sh
-  python3 -m pip install gguf numpy          # a few tests are skipped without these
+  python3 -m pip install gguf numpy          # in a virtualenv; a few tests are skipped without these
   python3 -m unittest discover -s tests -p 'test_*.py'
   (cd bench && python3 -m unittest discover -s . -p 'test_*.py')
   ```
