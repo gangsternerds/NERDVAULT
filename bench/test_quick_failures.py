@@ -22,9 +22,13 @@ class QuickBenchmarkTest(unittest.TestCase):
 
             script(root / "home/bin/llama-server", "exit 0\n")
             script(root / "commands/curl", 'if [ ! -e "$TEST_ROOT/probed" ]; then touch "$TEST_ROOT/probed"; exit 1; fi\nwhile [ ! -s "$TEST_ROOT/server.pid" ]; do sleep 0.01; done\nexit 0\n')
-            script(root / "commands/python3", "exit 42\n" if failure else "echo '| synthetic result |'\n")
+            # The measurement step retires the pid of the server it used, so the readiness probe of the next
+            # arm waits for that arm's own server. With a stale pid the probe returned at once and quick.sh
+            # could signal a server that had not finished starting, which bash can lose.
+            script(root / "commands/python3", 'cat "$TEST_ROOT/server.pid" >> "$TEST_ROOT/server.pids"\nrm "$TEST_ROOT/server.pid"\n'
+                   + ("exit 42\n" if failure else "echo '| synthetic result |'\n"))
             script(root / "commands/lscpu", "printf 'Core(s) per socket: 1\\nSocket(s): 1\\n'\n")
-            script(root / "serve", 'echo $$ > "$TEST_ROOT/server.pid"\necho "serving on test (synthetic mode)"\nexec sleep 60\n')
+            script(root / "serve", 'echo $$ > "$TEST_ROOT/server.pid.new"\nmv "$TEST_ROOT/server.pid.new" "$TEST_ROOT/server.pid"\necho "serving on test (synthetic mode)"\nexec sleep 60\n')
             env = dict(os.environ, TEST_ROOT=str(root), TMPDIR=str(root), OPENSET_LLM_HOME=str(root / "home"),
                        PATH=str(root / "commands") + os.pathsep + os.environ["PATH"])
             proc = subprocess.Popen(["bash", str(root / "bench/quick.sh")] + (["--plain"] if plain else []) + (["--spec"] if spec else []),
@@ -32,10 +36,12 @@ class QuickBenchmarkTest(unittest.TestCase):
                                     text=True, start_new_session=True)
             try:
                 stdout, stderr = proc.communicate(timeout=10)
-                self.assertTrue((root / "server.pid").exists(), stderr)
-                pid = int((root / "server.pid").read_text())
-                with self.assertRaises(ProcessLookupError):
-                    os.kill(pid, 0)
+                self.assertTrue((root / "server.pids").exists(), stderr)
+                pids = [int(line) for line in (root / "server.pids").read_text().split()]
+                self.assertEqual(len(pids), 1 + plain + spec, stderr)
+                for pid in pids:
+                    with self.assertRaises(ProcessLookupError):
+                        os.kill(pid, 0)
                 return proc.returncode, stdout, stderr
             finally:
                 try:
