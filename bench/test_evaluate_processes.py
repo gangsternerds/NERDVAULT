@@ -27,7 +27,7 @@ time.sleep(60)
                 for _ in range(100):
                     try:
                         state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
-                    except FileNotFoundError:
+                    except (FileNotFoundError, ProcessLookupError):  # the process can vanish while its stat file is being read
                         state = "gone"
                     if state in ("gone", "Z"):
                         break
