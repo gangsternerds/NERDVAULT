@@ -132,7 +132,7 @@ fi
 # With AVX-512 VNNI but no VBMI it still helps (7.8 vs 6.6 tok/s), so it stays on.
 if [ "$SPEC" = 1 ] && [ "$MULTI" -lt 2 ] && [ "$OS" = Darwin ]; then
   if [ "$SPEC_FORCE" = 0 ]; then
-    echo "note: on a Mac speculation is off (with this fork it is slower than plain decoding on the GPU: 2.8 vs 6.8 tok/s in bench/quick.sh on an M4); --spec forces it" >&2
+    echo "note: on a Mac speculation is off (with this fork it is slower than plain decoding on the GPU: 2.5-2.8 vs 6.8-7.3 tok/s in bench/quick.sh on an M4); --spec forces it" >&2
     SPEC=0
   fi
   X1=0

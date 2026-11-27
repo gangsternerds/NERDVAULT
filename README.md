@@ -235,7 +235,7 @@ AVX-VNNI where the CPU has it); one without AVX2 still runs, on the fork's own k
 | Intel Core 12th gen and newer (Alder / Raptor / Meteor / Arrow Lake) | AVX2 + AVX-VNNI | 256-bit kernels, VNNI dot product | not measured on such a CPU; the kernels were checked bit-exact, and the engine gave the same reply, under an emulated Alder Lake |
 | Intel Core before 12th gen without AVX-512, AMD Zen 1 to 3 (Ryzen 1000–5000, EPYC 7001–7003) | AVX2 | 256-bit kernels | **measured on Ice Lake server VMs with AVX-512 disabled** ([table](#cpus-without-avx-512)): 6.1–7.7 tok/s plain decoding, 3.5× the fork's own kernel on the same box, 0.7× of the AVX-512 path |
 | ARM64 Linux (Graviton, Ampere, Raspberry Pi 5) | NEON | fallback: fork's kernel | builds; untested |
-| Apple Silicon (16 GB and more) | Metal (GPU) | the fork's Metal kernels, plus this repo's agent-loop resume | **M4 measured** (16 GB, 2026-11-27): 6.8 tok/s decoding; an agent step at 4.4k tokens takes 7 s instead of 152–176 s ([Mac](#run-it-locally)) |
+| Apple Silicon (16 GB and more) | Metal (GPU) | the fork's Metal kernels, plus this repo's agent-loop resume | **M4 measured** (16 GB, 2026-11-27): 6.8–7.3 tok/s decoding; an agent step at 4.4k tokens takes 7 s instead of 152–176 s ([Mac](#run-it-locally)) |
 
 ### CPUs without AVX-512
 
@@ -458,14 +458,14 @@ git clone https://github.com/opensetlabs/openset-llm && cd openset-llm && ./inst
 
 | M4 (10-core GPU, 16 GB), 2026-11-27 | |
 |---|---|
-| `bench/quick.sh` (6 prompts × 128 tokens, greedy) | 6.80 tok/s decoding [5.16–7.83], 28 tok/s prompt reading |
+| `bench/quick.sh` (6 prompts × 128 tokens, greedy; median of each of 2 runs) | 6.80 and 7.31 tok/s decoding, 28 tok/s prompt reading |
 | agent step, 4.4k-token prompt with a new last message, `./serve --ctx 8192` | 7.1–7.7 s (18–21 tokens read again); 152–176 s with `--no-resume` (all 4.4k) |
 | the same step after a server restart (the system prompt's state loads from disk in 0.14 s) | 7.0 s; 157 s with `--no-resume` |
 
 - Replies were byte-identical with and without resume (5/5 through `./serve`, 8/8 more on the same build).
 - Resume reads a new kind of prompt in full twice before it knows where the next request will diverge: steps 0 and 1
   of the loop above took 160–167 s.
-- Speculation is off by default: with the fork pinned here, `./serve --spec` decodes at 2.76 tok/s on the same prompts
+- Speculation is off by default: with the fork pinned here, `./serve --spec` decodes at 2.47–2.76 tok/s on the same prompts
   (65 % of drafts accepted). `--kv8`, `--kv6` and `--kv5` run in the x86 attention kernel and are refused on a Mac.
 - Not measured: `--multi`, other chips (M1 to M3, Pro and Max), contexts above 8192. Intel Macs are not supported, and
   `install.sh` refuses Macs under 16 GB (the GPU can use about three quarters of the memory; the weights take 5.5 GiB).
