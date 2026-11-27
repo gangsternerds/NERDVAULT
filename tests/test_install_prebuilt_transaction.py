@@ -3,6 +3,7 @@ import io
 import tarfile
 from pathlib import Path
 import shutil
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -40,8 +41,11 @@ class InstallRegression(unittest.TestCase):
         path.chmod(0o755)
 
     def install(self, *args):
+        # A test runner started as a background job has SIGINT ignored, and bash cannot trap a signal that
+        # was ignored when it started. Give the installer the default so its INT trap can be tested there too.
         return subprocess.run(["/bin/bash", str(ROOT / "install.sh"), *args],
-                              env=self.env, text=True, capture_output=True, timeout=15)
+                              env=self.env, text=True, capture_output=True, timeout=15,
+                              preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))
 
     def archive(self, truncate=False, executable=True):
         payload = b'#!/bin/sh\nexit 0\n# replacement engine\n' if executable else b'#!/bin/sh\nexit 12\n'

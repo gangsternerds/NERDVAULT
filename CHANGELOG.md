@@ -4,6 +4,15 @@ All notable changes to openset-llm. Dates are YYYY-MM-DD.
 
 ## Unreleased
 
+Fixed
+
+- Model grafting: a failed graft no longer truncates an existing output model; the new file is written beside it and
+  published with one rename (#91).
+- Benchmark grader (`bench/evaluate.py`): binary output from a generated program no longer aborts the batch (#128),
+  and backticks inside a fenced Python reply are kept (#129).
+
+Thank you to @Afloat16 for these.
+
 ## 0.3.1 (2026-11-27)
 
 A bug-fix release: 20 fixes from the community, no change in speed or in the model file.
