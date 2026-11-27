@@ -4,6 +4,10 @@ All notable changes to openset-llm. Dates are YYYY-MM-DD.
 
 ## Unreleased
 
+## 0.3.3 (2026-11-27)
+
+Install without a compiler: releases now carry a prebuilt engine.
+
 Added
 
 - Prebuilt engine on every release: publishing a release now builds the portable x86-64 engine and attaches
