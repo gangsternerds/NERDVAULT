@@ -459,6 +459,9 @@ curl http://127.0.0.1:8080/v1/chat/completions -H 'Content-Type: application/jso
   -d '{"messages":[{"role":"user","content":"Write a haiku about cache misses."}]}'
 ```
 
+Or check the health endpoint, the model list and one reply in one go: `bash scripts/smoke-test.sh`.
+To keep the server running in the background as a systemd service, see [docs/deployment.md](docs/deployment.md).
+
 ## In the cloud
 
 - **Any Linux VM or container host** with 8 vCPU / 8 GB: the Linux recipe or the Docker image above (AVX-512 for the

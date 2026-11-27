@@ -14,6 +14,15 @@ Thanks for looking. This is a small project; the most useful contributions are, 
 - `patches/` and `kernels/` are applied to a pinned commit of PrismML's llama.cpp fork by `patches/apply.sh`; change them there, not in a checkout.
 - Before sending a pull request, run `./install.sh` on a clean machine, then `./serve` and one request (the `curl` in the README); for anything that touches speed, `bench/README.md`.
 - Shell scripts must pass `bash -n`; Python must compile. CI checks both.
+- Run the unit tests before sending a pull request; CI runs the same two commands. They need no model and take
+  under a minute:
+  ```sh
+  python3 -m pip install gguf numpy          # a few tests are skipped without these
+  python3 -m unittest discover -s tests -p 'test_*.py'
+  (cd bench && python3 -m unittest discover -s . -p 'test_*.py')
+  ```
+- A bug fix should come with a test that fails without the fix.
+- With a server running, `bash scripts/smoke-test.sh` checks the three endpoints most clients use.
 - Text a user sees (README, `--help`, messages) should say what a thing does in plain words.
 
 ## Numbers in the README
