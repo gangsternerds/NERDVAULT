@@ -4,14 +4,28 @@ All notable changes to openset-llm. Dates are YYYY-MM-DD.
 
 ## Unreleased
 
+## 0.3.2 (2026-11-27)
+
+A small bug-fix release. Speed and the model file are unchanged.
+
 Fixed
 
 - Model grafting: a failed graft no longer truncates an existing output model; the new file is written beside it and
   published with one rename (#91).
 - Benchmark grader (`bench/evaluate.py`): binary output from a generated program no longer aborts the batch (#128),
   and backticks inside a fenced Python reply are kept (#129).
+- Long-context benchmark (`bench/ctxrun.py`): each job stops its own server process group on every exit, and no longer
+  kills other `llama-server` processes on the machine (#133).
 
-Thank you to @Afloat16 for these.
+Added
+
+- `docs/deployment.md`: giving WSL2 enough memory, and running `./serve` as a systemd user service (#9).
+
+Changed
+
+- The README no longer links to a repository that is not public yet (#132).
+
+Thank you to @Afloat16 and @PhilJHolland for these.
 
 ## 0.3.1 (2026-11-27)
 
