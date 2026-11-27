@@ -4,6 +4,8 @@ All notable changes to openset-llm. Dates are YYYY-MM-DD.
 
 ## Unreleased
 
+## 0.3.0 (2026-11-27)
+
 Added
 
 - 256-bit kernels for the ternary weights on CPUs without AVX-512 (AVX2, and AVX-VNNI where the CPU has it): Intel
