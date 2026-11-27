@@ -206,6 +206,7 @@ def main() -> None:
                             out.flush()
                             print(f"b{bi} {arm:>12} {p['id']:<32} ERROR {e}", file=sys.stderr, flush=True)
                             if proc.poll() is not None:
+                                stop(proc)  # the exited launcher may still have live server children
                                 port, proc, log = start(arm, arms[arm], logdir, f"r{a.rep}b{bi}x")
                             continue
                         finally:
