@@ -4,6 +4,8 @@
 #   ./install.sh                 # CPU check, build for this machine, download + prepare the model
 #   ./install.sh --portable      # build one binary set for every x86-64 CPU (picks the best kernel at run time:
 #                                #   AVX-512 where the CPU has it, the 256-bit AVX2 / AVX-VNNI kernels where it does not)
+#   ./install.sh --prebuilt      # fetch the engine built for the latest release instead of building (no compiler
+#                                #   needed; checksum verified; must match this checkout's engine sources)
 #   ./install.sh --bin-url URL   # fetch a prebuilt tarball (made by scripts/package.sh) instead of building
 #   ./install.sh --no-mtp        # skip the speculative-decoding head (saves 1.4 GB of download; 1.4-1.9x slower)
 #   ./install.sh --check         # only print what this machine will get, then exit
@@ -22,15 +24,19 @@ MTP_REPO=unsloth/Qwen3.8-27B-GGUF;             MTP_FILE=MTP/mtp-Qwen3.8-27B-Q4_0
 MIN_RAM_KB=7600000      # an "8 GB" machine reports ~7.6-8.1 GB; the server's resident set is ~7.0 GB
 MIN_DISK_GB=15          # base 6.0 + MTP sidecar 1.4 + grafted model 6.2 at peak, + the build
 
-PORTABLE=0; BIN_URL=${OPENSET_LLM_BIN_URL:-}; MTP=1; CHECK_ONLY=0; MODEL_ONLY=0
+PORTABLE=0; BIN_URL=${OPENSET_LLM_BIN_URL:-}; MTP=1; CHECK_ONLY=0; MODEL_ONLY=0; PREBUILT=0; ENGINE_ID_ONLY=0
+RELEASE_URL=${OPENSET_LLM_RELEASE_URL:-https://github.com/opensetlabs/openset-llm/releases/latest/download}
+RELEASE_TARBALL=openset-llm-linux-x86_64.tar.gz
 while [ $# -gt 0 ]; do
   case $1 in
     --portable) PORTABLE=1 ;;
+    --prebuilt) PREBUILT=1 ;;
+    --engine-id) ENGINE_ID_ONLY=1 ;;   # for scripts/package.sh: print what identifies the engine sources, then exit
     --bin-url) [ $# -ge 2 ] || { echo "--bin-url needs a URL" >&2; exit 2; }; BIN_URL=$2; shift ;;
     --no-mtp) MTP=0 ;;
     --check) CHECK_ONLY=1 ;;
     --model-only) MODEL_ONLY=1 ;;
-    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,14p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
@@ -38,6 +44,16 @@ done
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+# What the engine is built from: the pinned fork commit, the patches and the kernels. Not this script, not the docs.
+engine_id() { echo "$FORK_SHA $(cat "$HERE/patches/apply.sh" "$HERE"/patches/*.patch "$HERE"/kernels/* | cksum | cut -d' ' -f1)"; }
+if [ "$ENGINE_ID_ONLY" = 1 ]; then engine_id; exit 0; fi
+if [ "$PREBUILT" = 1 ]; then
+  [ -z "$BIN_URL" ] || die "--prebuilt and --bin-url cannot be used together"
+  [ "$PORTABLE" = 0 ] || die "--prebuilt and --portable cannot be used together"
+  case $(uname -m) in x86_64|amd64) ;; *) die "prebuilt engines exist for x86-64 Linux only; run plain ./install.sh to build here" ;; esac
+  BIN_URL=$RELEASE_URL/$RELEASE_TARBALL
+fi
 
 # ---------------------------------------------------------------- CPU check
 cpu_path() {
@@ -172,8 +188,25 @@ if [ "$MODEL_ONLY" = 1 ]; then
 elif [ -n "$BIN_URL" ]; then
   say "Fetching prebuilt binaries: $BIN_URL"
   begin_bin_update
-  curl -fSL --retry 3 "$BIN_URL" | tar -xz -C "$BIN_STAGE" --strip-components=1 \
-    || die "could not download or unpack $BIN_URL"
+  if [ "$PREBUILT" = 1 ]; then
+    # download to a file first: the checksum is checked before anything is unpacked or run
+    curl -fSL --retry 3 -o "$BIN_STAGE/.download" "$BIN_URL" \
+      || die "could not download $BIN_URL
+       Releases before 0.3.3 carry no prebuilt engine. Run plain ./install.sh to build the engine here instead."
+    sums=$(curl -fsSL --retry 3 "$RELEASE_URL/SHA256SUMS") || die "could not download $RELEASE_URL/SHA256SUMS"
+    want=$(printf '%s\n' "$sums" | awk -v f="$RELEASE_TARBALL" '$2 == f || $2 == "*" f {print $1; exit}')
+    got=$(sha256sum "$BIN_STAGE/.download" | cut -d' ' -f1)
+    [ -n "$want" ] && [ "$want" = "$got" ] || die "checksum mismatch for $RELEASE_TARBALL (expected ${want:-no entry in SHA256SUMS}, got $got); nothing was installed"
+    tar -xzf "$BIN_STAGE/.download" -C "$BIN_STAGE" --strip-components=1 || die "could not unpack $BIN_URL"
+    rm -f "$BIN_STAGE/.download"
+    if [ "$(cat "$BIN_STAGE/.engine-id" 2>/dev/null)" != "$(engine_id)" ]; then
+      die "the latest release's engine was built from different engine sources than this checkout (patches or kernels differ).
+       Check out the latest release tag, or run plain ./install.sh to build the engine here."
+    fi
+  else
+    curl -fSL --retry 3 "$BIN_URL" | tar -xz -C "$BIN_STAGE" --strip-components=1 \
+      || die "could not download or unpack $BIN_URL"
+  fi
   # a prebuilt engine only runs on the distribution it was built on or a newer one: find out now, before the download
   engine_starts() { ver=$(LD_LIBRARY_PATH="$BIN_STAGE" "$BIN_STAGE/llama-server" --version 2>&1); }
   if ! engine_starts && case $ver in *libgomp.so.1*) true ;; *) false ;; esac; then

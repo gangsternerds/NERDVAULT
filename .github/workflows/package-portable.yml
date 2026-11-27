@@ -1,6 +1,12 @@
 name: package-portable
 
+# Builds the portable x86-64 engine (every kernel variant, chosen at run time; no model weights) and packs it for
+# ./install.sh --prebuilt and --bin-url. Runs when a release is published, and attaches the tarball and its checksum
+# to that release. It can also be started by hand; then the tarball is only kept as a workflow artifact.
+
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tarball_name:
@@ -11,11 +17,15 @@ on:
 permissions:
   contents: read
 
+env:
+  TARBALL_NAME: ${{ inputs.tarball_name || 'openset-llm-linux-x86_64.tar.gz' }}
+
 jobs:
   build-portable-linux:
+    # the oldest runner image: the binaries need its glibc or newer
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -38,12 +48,16 @@ jobs:
           cmake --build /tmp/llama.cpp/build -j"$(nproc)"
           mkdir -p "$HOME/.openset-llm/bin"
           cp -a /tmp/llama.cpp/build/bin/llama-server /tmp/llama.cpp/build/bin/*.so* "$HOME/.openset-llm/bin/"
+          # the same extra tools ./install.sh --portable installs (bench/jobs.sh uses llama-bench)
+          for tool in llama-bench llama-cli; do
+            if [ -e "/tmp/llama.cpp/build/bin/$tool" ]; then cp -a "/tmp/llama.cpp/build/bin/$tool" "$HOME/.openset-llm/bin/"; fi
+          done
+          LD_LIBRARY_PATH="$HOME/.openset-llm/bin" "$HOME/.openset-llm/bin/llama-server" --version
 
       - name: Pack tarball and SHA256SUMS
         run: |
-          OUT="${{ inputs.tarball_name }}"
-          bash scripts/package.sh "$OUT"
-          sha256sum "$OUT" > SHA256SUMS
+          bash scripts/package.sh "$TARBALL_NAME"
+          sha256sum "$TARBALL_NAME" > SHA256SUMS
           cat SHA256SUMS
 
       - name: Upload portable artifact
@@ -51,6 +65,23 @@ jobs:
         with:
           name: openset-llm-portable-linux-x86_64
           path: |
-            ${{ inputs.tarball_name }}
+            ${{ env.TARBALL_NAME }}
             SHA256SUMS
           retention-days: 14
+
+  attach-to-release:
+    # only this job may write to the repository, and only to add the two files to the release that triggered it
+    if: github.event_name == 'release'
+    needs: build-portable-linux
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: openset-llm-portable-linux-x86_64
+      - name: Attach the tarball and its checksum to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "$TARBALL_NAME" SHA256SUMS --repo "$GITHUB_REPOSITORY" --clobber

@@ -466,7 +466,11 @@ To keep the server running in the background as a systemd service, see [docs/dep
 
 - **Any Linux VM or container host** with 8 vCPU / 8 GB: the Linux recipe or the Docker image above (AVX-512 for the
   speeds on this page; AVX2-only hosts such as AMD Zen 2 / Zen 3 instances run on the 256-bit kernels).
-- **Prebuilt binaries:** `./install.sh --bin-url <tarball>` skips the build (tarballs come from `scripts/package.sh`).
+- **Prebuilt binaries:** `./install.sh --prebuilt` fetches the engine attached to the latest release instead of
+  building it (x86-64 Linux with glibc 2.35 or newer, such as Ubuntu 22.04 or Debian 12; no compiler needed). It
+  checks the download against the release's `SHA256SUMS` and refuses an engine built from other patches or kernels
+  than your checkout, so use it on a checkout of the latest release tag. Releases from 0.3.3 on carry one.
+  `./install.sh --bin-url <tarball>` does the same with a tarball of your own (made by `scripts/package.sh`).
   A tarball runs on the Linux distribution it was built on or a newer one, so build it on the oldest one you want to
   support; `install.sh` checks that it starts before it downloads the model.
 

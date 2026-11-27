@@ -7,5 +7,7 @@ set -euo pipefail
 PREFIX=${OPENSET_LLM_HOME:-$HOME/.openset-llm}
 OUT=${1:-openset-llm-linux-$(uname -m).tar.gz}
 ls "$PREFIX"/bin/libggml-cpu-*.so >/dev/null 2>&1 || { echo "not a portable build: run ./install.sh --portable" >&2; exit 1; }
+# what the engine was built from, so ./install.sh --prebuilt can refuse an engine that does not match a checkout
+bash "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/install.sh" --engine-id > "$PREFIX/bin/.engine-id"
 tar -czf "$OUT" -C "$PREFIX" --transform 's#^bin#openset-llm#' bin
 echo "$OUT ($(du -h "$OUT" | cut -f1))"

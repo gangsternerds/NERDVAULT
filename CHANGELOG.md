@@ -4,6 +4,20 @@ All notable changes to openset-llm. Dates are YYYY-MM-DD.
 
 ## Unreleased
 
+Added
+
+- Prebuilt engine on every release: publishing a release now builds the portable x86-64 engine and attaches
+  `openset-llm-linux-x86_64.tar.gz` and `SHA256SUMS` to it. `./install.sh --prebuilt` installs it without a compiler:
+  it verifies the checksum and refuses an engine built from other patches or kernels than the checkout. Builds on
+  the packaging workflow contributed in #22.
+- `docs`: the README and CONTRIBUTING point to the smoke test, the deployment guide and how to run the tests (#136).
+
+Changed
+
+- `install.sh` changed, so the next `./install.sh` rebuilds the engine once.
+
+Thank you to @cioffivictor for the packaging workflow.
+
 ## 0.3.2 (2026-11-27)
 
 A small bug-fix release. Speed and the model file are unchanged.

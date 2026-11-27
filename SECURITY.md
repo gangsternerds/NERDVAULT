@@ -14,7 +14,9 @@ attacker gains. You will get an answer within a week.
 - **No rate limiting.** One client can occupy the engine.
 - At install, the script clones llama.cpp from GitHub, downloads the model weights from Hugging Face over HTTPS, and
   may install build tools with apt or pip. `--bin-url` downloads and runs a prebuilt binary: only use a tarball you
-  trust. Nothing is fetched after install.
+  trust. `--prebuilt` downloads the engine attached to the latest release of this repository and checks it against
+  that release's `SHA256SUMS`; the checksum comes from the same release, so it detects a damaged download, not a
+  tampered release. Nothing is fetched after install.
 - **Prompt states on disk.** With resume on (the default), the server keeps up to 8 prefix states built from your
   prompts in `~/.openset-llm/state`. Delete the folder to clear them, or run `./serve --no-resume`.
 - Until the first tagged release, only the latest commit on `main` is supported with fixes.
